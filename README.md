@@ -1,53 +1,102 @@
-# 📦 Order Assistant - E-Commerce AI Web App
+# Order Assistant
 
-An end-to-end, production-grade AI-powered **Order Assistant** chat web application built for an e-commerce platform screening task. Users ask natural-language questions about customer orders, sales metrics, and inventory, and the AI agent retrieves facts by calling structured python tools over `orders.csv`.
+A production-grade AI-powered web chat application for querying an online store's orders dataset using FastAPI, Google Gemini tool calling, and a responsive vanilla frontend.
 
-**GitHub Repository**: [https://github.com/varunnandan/order-assistant](https://github.com/varunnandan/order-assistant)
-**Live Demo**: [https://order-assistant-0gww.onrender.com/](https://order-assistant-0gww.onrender.com/) *(Note: Render free tier services may experience a ~30–60 second cold start on the initial request)*.
-
----
-
-## 🛠️ Tech Stack
-
-- **Backend Framework**: Python 3.11+, FastAPI, Pydantic v2, Uvicorn
-- **AI / LLM Integration**: Official Google Gemini SDK (`google-genai`), native function calling (`gemini-2.5-flash`)
-- **Dataset / Data Layer**: In-memory Python standard library CSV parsing (`data/orders.csv`)
-- **Frontend**: Lightweight vanilla HTML5, CSS3, and JavaScript (served directly by FastAPI)
-- **Testing**: `pytest` + FastAPI `TestClient` (100% offline runnable tests with mock LLM)
-- **Deployment**: Render Free Web Service (`render.yaml`)
+**Live Demo**: [https://order-assistant-0gww.onrender.com](https://order-assistant-0gww.onrender.com)  
+*(Note: Render free tier services cold-start on idle; the initial request may take 30–60 seconds).*
 
 ---
 
-## 🚀 Quick Local Setup (2 Commands)
+## Features
 
-### 1. Clone & Install Dependencies
+- **Tool-Calling Agent**: Executes 4 deterministic Python tools (`get_order`, `search_orders`, `calculate_metrics`, `get_dataset_info`) to answer factual order and metric questions.
+- **UI Tool Execution Steps**: Collapsible "Steps" panel under each assistant response displaying tool names, formatted JSON arguments, execution status, and summaries.
+- **Input Validation**: Strict message length limits (1–1000 chars), history windowing (last 10 turns), and Pydantic v2 schema enforcement.
+- **Rate Limiting**: Sliding-window rate limiter restricting requests to 20 per minute per IP address.
+- **Resilience & Fallback**: Up to 3 retries with exponential backoff and jitter for transient errors (503, 429, 500, timeouts), automatic fallback from primary (`gemini-3.8-flash`) to fallback model (`gemini-flash-latest`), and 30-second per-request timeout.
+- **Guardrails**: Prompt-injection awareness and off-topic request refusal protecting system integrity.
+
+---
+
+## Tech Stack
+
+- **Backend**: Python 3.11+, FastAPI, Pydantic v2, Uvicorn
+- **AI / LLM**: Official Google Gemini SDK (`google-genai==2.29.0`) with native function calling
+- **Frontend**: Vanilla HTML5, CSS3, JavaScript (served static via FastAPI)
+- **Testing**: `pytest` + FastAPI `TestClient` (100% offline runnable with mock LLM)
+- **Deployment**: Render Web Service (`render.yaml`)
+
+---
+
+## Quick Start
+
+### Prerequisites
+- Python 3.11 or higher
+- A free Google Gemini API Key from [Google AI Studio](https://aistudio.google.com)
+
+### Installation & Execution
+
+#### macOS / Linux
 ```bash
-pip install -r requirements.txt && cp .env.example .env
-```
+# 1. Clone repository
+git clone https://github.com/varunnandan/order-assistant.git
+cd order-assistant
 
-### 2. Configure Environment Variables & Run
-Add your free Google Gemini API key to `.env` (Get a free key from [Google AI Studio](https://aistudio.google.com/)):
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.8-flash
-GEMINI_FALLBACK_MODEL=gemini-flash-latest
-```
+# 2. Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
 
-> **Note**: `gemini-2.0-flash` is retired (404). Use `gemini-3.8-flash` as primary and `gemini-flash-latest` as fallback — both confirmed working.
+# 3. Install dependencies
+pip install -r requirements.txt
 
-Then start the server:
-```bash
+# 4. Configure environment variables
+cp .env.example .env
+# Edit .env and paste your GEMINI_API_KEY
+
+# 5. Start development server
 uvicorn app.main:app --reload
 ```
-*Or using Python directly: `python run.py`, or `make run`.*
 
-Open `http://localhost:8000` in your web browser to interact with the Chat UI.
+#### Windows (PowerShell)
+```powershell
+# 1. Clone repository
+git clone https://github.com/varunnandan/order-assistant.git
+cd order-assistant
+
+# 2. Create and activate virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Configure environment variables
+Copy-Item .env.example .env
+# Edit .env and paste your GEMINI_API_KEY
+
+# 5. Start development server
+uvicorn app.main:app --reload
+```
+
+Open `http://localhost:8000` in your browser.
 
 ---
 
-## 🧪 Running Tests
+## Environment Variables
 
-All unit, integration, and guardrail tests run completely **offline** without requiring a live Gemini API key:
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `GEMINI_API_KEY` | Yes | — | Google Gemini API key from Google AI Studio |
+| `GEMINI_MODEL` | No | `gemini-3.8-flash` | Primary Gemini model for agent function calling |
+| `GEMINI_FALLBACK_MODEL` | No | `gemini-flash-latest` | Fallback model if primary model fails with transient errors |
+| `HOST` | No | `0.0.0.0` | Host interface for server binding |
+| `PORT` | No | `8000` | Port for server binding |
+
+---
+
+## Running Tests
+
+All unit, integration, and guardrail tests run offline using a mock LLM client and require no API key:
 
 ```bash
 pytest -q
@@ -55,38 +104,36 @@ pytest -q
 
 ---
 
-## 📊 Dataset & Revenue Convention
-
-The dataset consists of 60 verified order records spanning **2026-06-01 to 2026-09-28**.
-
-> **Revenue Convention**: By default, **revenue and spend calculations EXCLUDE orders with status `cancelled` (7 orders) or `returned` (3 orders)** because they were not completed sales. The tools support an optional `include_statuses` parameter, and the assistant explicitly states which statuses were included in every response.
-
----
-
-## 💬 Example Questions to Try
+## Example Questions to Try
 
 1. **Order Lookup**: *"What is the status of order ORD-1025?"*
-2. **Status Count**: *"How many orders were cancelled?"*
-3. **Revenue Metric**: *"What was the total revenue from Electronics in August?"*
+2. **Status Metrics**: *"How many orders were cancelled?"*
+3. **Revenue Calculation**: *"What was the total revenue from Electronics in August?"*
 4. **Top Customer**: *"Which customer has spent the most?"*
+5. **Non-Existent Order**: *"What is the status of order ORD-9999?"*
+6. **City Alias / Typo**: *"Show orders from Trivandrum"*
+7. **Follow-Up Question**: *"What about Kochi?"*
 
 ---
 
-## 🔌 API Reference
+## API Reference
 
-### `GET /api/health`
-Health check endpoint returning dataset status.
+### Health Check
+`GET /api/health`
+
+**Response (`200 OK`)**:
 ```json
 {
   "status": "ok",
-  "orders_loaded": 60
+  "orders_loaded": 60,
+  "llm_ready": true
 }
 ```
 
-### `POST /api/chat`
-Sends a natural language query with conversation history.
+### Chat Endpoint
+`POST /api/chat`
 
-**Request Body**:
+**Request (`200 OK`)**:
 ```json
 {
   "message": "What is the status of order ORD-1025?",
@@ -97,10 +144,10 @@ Sends a natural language query with conversation history.
 }
 ```
 
-**Response**:
+**Response (`200 OK`)**:
 ```json
 {
-  "reply": "Order ORD-1025 was placed by Karthik Rao in Kochi for a Wireless Mouse (3 units, Total: ₹2,397). Its current status is delivered.",
+  "reply": "The status of order ORD-1025 is Delivered.\n\nOrder Details:\n- Customer: Karthik Rao\n- Product: Wireless Mouse (Quantity: 3)\n- Total Amount: ₹2,397\n- City: Kochi\n- Payment Method: Credit Card",
   "tool_calls": [
     {
       "name": "get_order",
@@ -112,36 +159,65 @@ Sends a natural language query with conversation history.
 }
 ```
 
+### Error Responses
+- **`422 Unprocessable Entity`**: Input validation failure (empty message, >1000 characters, invalid history role).
+- **`429 Too Many Requests`**: Rate limit exceeded (>20 requests per minute).
+- **`503 Service Unavailable`**: AI service unconfigured or temporarily busy (`{"error": "The AI service is busy right now. Please try again in a few seconds."}`).
+
 ---
 
-## 📁 Project Structure
+## Data and Assumptions
+
+- Dataset: 60 order rows stored in `data/orders.csv` spanning dates 2026-06-01 to 2026-09-28.
+- Revenue & Spend Convention: By default, revenue and spend calculations **exclude orders with status `cancelled` (7 orders) or `returned` (3 orders)** as they represent uncompleted sales. The assistant explicitly states which statuses were counted in every reply.
+
+---
+
+## Deployment
+
+The application is deployed as a single Web Service on **Render**:
+- **Build Command**: `pip install -r requirements.txt`
+- **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- **Health Check Path**: `/api/health`
+- **Environment Variables**: Set in the Render Dashboard (`GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`).
+
+---
+
+## Project Structure
 
 ```
 .
 ├── app/
-│   ├── main.py          # FastAPI app, routes, error handlers, static file mounting
-│   ├── schemas.py       # Pydantic v2 request/response models
-│   ├── data.py          # CSV loader, city aliases, and dataset helpers
-│   ├── tools.py         # 4 tool implementations with schemas & validation
-│   ├── agent.py         # OrderAgent loop (tool calling, iteration control, traces)
-│   ├── llm.py           # Isolated Google Gemini LLM provider wrapper
-│   └── guardrails.py    # Input validation, rate limiting, and off-topic guard
+│   ├── main.py          # FastAPI application, routing, error handlers, static file mounting
+│   ├── schemas.py       # Pydantic v2 schemas for requests, responses, and tool traces
+│   ├── data.py          # CSV loading, normalization, city alias handling
+│   ├── tools.py         # 4 tool implementations with parameters and revenue rules
+│   ├── agent.py         # OrderAgent loop (max 5 iterations, tool trace collection)
+│   ├── llm.py           # LLMProvider wrapper with backoff retries and fallback
+│   └── guardrails.py    # Input validation, sliding-window rate limiter, off-topic filter
 ├── data/
-│   └── orders.csv       # Standard order dataset (60 rows)
+│   └── orders.csv       # Order dataset (60 rows)
 ├── static/
 │   ├── index.html       # Single-page chat UI
-│   ├── styles.css       # Clean, mobile-responsive styling
-│   └── app.js           # Frontend interactivity & tool steps UI
+│   ├── styles.css       # Mobile-responsive CSS styling
+│   └── app.js           # Frontend client, chat history, and collapsible tool steps UI
 ├── tests/
-│   ├── test_tools.py    # Dataset & tools unit tests
-│   ├── test_api.py      # API validation, rate limiting & mock agent tests
-│   └── test_frontend_mount.py # Static file delivery tests
-├── .env.example         # Template for environment variables
-├── .gitignore            # Git exclusion rules (includes .env)
-├── render.yaml          # Render web service deployment spec
-├── requirements.txt     # Python dependencies
-├── Makefile             # Convenience Makefile
-├── run.py               # Server entry point
-├── WRITEUP.md           # Architecture & design write-up
-└── README.md            # Project documentation
+│   ├── test_tools.py    # Unit tests for tool logic and dataset queries
+│   ├── test_api.py      # API validation, rate limiting, and mock agent tests
+│   ├── test_frontend_mount.py  # Static file delivery tests
+│   └── test_llm_resilience.py # Retry, fallback model, signature, and error tests
+├── .env.example         # Template for local environment variables
+├── .gitignore           # Git ignore rules
+├── Makefile             # Run and test shortcuts
+├── README.md            # Project documentation
+├── WRITEUP.md           # Architecture and design write-up
+├── render.yaml          # Render service deployment blueprint
+├── requirements.txt     # Pinned Python dependencies
+└── run.py               # Local launcher entry point
 ```
+
+---
+
+## Architecture Write-Up
+
+See [WRITEUP.md](WRITEUP.md) for detailed architecture decisions, tool-calling loop design, guardrails, deployment, and future improvements.
