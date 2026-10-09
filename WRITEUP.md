@@ -5,7 +5,7 @@
 The application follows a clean, decoupled **Single-Service Monolith** architecture:
 - **Presentation Layer**: Vanilla HTML5, CSS3, and JavaScript served statically from `/static` via FastAPI. No heavy frontend framework or node build step was required, keeping startup latency sub-second.
 - **API & Routing**: FastAPI endpoint (`POST /api/chat`) handles client requests, input validation, history windowing, and rate limiting.
-- **LLM Abstraction Layer (`app/llm.py`)**: All Google Gemini SDK logic is strictly isolated in `LLMProvider`. Swapping out Gemini for OpenAI, Anthropic, or an open-weight model requires changing only this module.
+- **LLM Abstraction Layer (`app/llm.py`)**: All Google Gemini SDK logic is strictly isolated in `LLMProvider`. Primary model: `gemini-3.8-flash`; fallback: `gemini-flash-latest` (both confirmed working — `gemini-2.0-flash` was retired). Swapping out Gemini for OpenAI, Anthropic, or an open-weight model requires changing only this module.
 - **Agent Loop (`app/agent.py`)**: Executes an iterative tool-calling loop (capped at 5 iterations). If the LLM requests function calls, the agent executes them against Python functions, appends structured tool responses to conversation history, and iterates until a final text answer is generated.
 - **Tool & Data Layer (`app/tools.py`, `app/data.py`)**: Standardized Python tools (`get_order`, `search_orders`, `calculate_metrics`, `get_dataset_info`) execute arithmetic, filtering, and city alias resolution deterministically in Python code.
 
@@ -24,8 +24,9 @@ The application follows a clean, decoupled **Single-Service Monolith** architect
 
 - **LLM Resilience & Transient Fault Handling**:
   - **Exponential Backoff Retries**: Transient API errors (e.g., 503 UNAVAILABLE, 429 Rate Limit, 500, timeouts) are automatically retried up to 3 times with exponential backoff and randomized jitter (1s, 2s, 4s). Non-retryable client errors (400, 401, 403, 404) fail immediately without retrying.
-  - **Secondary Model Fallback**: If the primary model (`gemini-2.5-flash`) exhausts retries due to persistent high demand, the system automatically falls back to a secondary model (`GEMINI_FALLBACK_MODEL`, default `gemini-2.0-flash`).
-  - **Disabled SDK Auto-Calling**: SDK automatic function calling (`automatic_function_calling=AutomaticFunctionCallingConfig(disable=True)`) is explicitly disabled so only our controlled agent loop executes tools and traces steps accurately.
+  - **Explicit 30-second Timeout**: Every LLM call is made through an `httpx.Client` configured with a 30-second read timeout and 10-second connect timeout, preventing hanging requests.
+  - **Secondary Model Fallback**: If the primary model (`gemini-3.8-flash`) exhausts retries due to persistent high demand, the system automatically falls back to `gemini-flash-latest`. Note: `gemini-2.0-flash` is retired (returns 404) and was never used as a fallback.
+  - **Disabled SDK Auto-Calling**: SDK automatic function calling (`AutomaticFunctionCallingConfig(disable=True)`) is explicitly disabled so only our controlled agent loop executes tools and traces steps accurately.
   - **Graceful HTTP 503 Surface**: If all retries and fallback models fail, the server returns a clean HTTP 503 with `"The AI service is busy right now. Please try again in a few seconds."`, enabling the UI Retry button.
 - **Scope & Prompt Injection Guard**: Pre-scans incoming user messages for prompt-injection keywords (`ignore previous instructions`, `system prompt`, `api key`) or off-topic prompts (general knowledge, coding, recipes) and returns an instant polite refusal.
 - **Tool-Argument Validation**: All tool parameters are typed and validated. Unsupported fields or invalid metrics are rejected with structured error messages.

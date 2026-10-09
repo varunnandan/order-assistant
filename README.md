@@ -29,9 +29,11 @@ pip install -r requirements.txt && cp .env.example .env
 Add your free Google Gemini API key to `.env` (Get a free key from [Google AI Studio](https://aistudio.google.com/)):
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-2.5-flash
-GEMINI_FALLBACK_MODEL=gemini-2.0-flash
+GEMINI_MODEL=gemini-3.8-flash
+GEMINI_FALLBACK_MODEL=gemini-flash-latest
 ```
+
+> **Note**: `gemini-2.0-flash` is retired (404). Use `gemini-3.8-flash` as primary and `gemini-flash-latest` as fallback — both confirmed working.
 
 Then start the server:
 ```bash
