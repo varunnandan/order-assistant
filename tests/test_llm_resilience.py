@@ -7,6 +7,12 @@ class MockGeminiResponse:
         self.text = text
         self.function_calls = []
 
+def test_real_genai_client_constructor_signature():
+    """Construct real LLMProvider with dummy key to verify SDK Client signature options."""
+    provider = LLMProvider(api_key="dummy_api_key_for_signature_test")
+    assert provider.client is not None
+    assert provider.is_configured() is True
+
 def test_is_transient_error_classification():
     assert is_transient_error(Exception("503 Service Unavailable - high demand")) is True
     assert is_transient_error(Exception("429 Too Many Requests")) is True
@@ -21,7 +27,7 @@ def test_is_transient_error_classification():
 
 @patch("time.sleep", return_value=None)
 def test_primary_model_retry_success(mock_sleep):
-    provider = LLMProvider(api_key="test_key", model="gemini-2.5-flash", fallback_model="gemini-2.0-flash")
+    provider = LLMProvider(api_key="test_key", model="gemini-3.8-flash", fallback_model="gemini-flash-latest")
     
     mock_client = MagicMock()
     # Attempt 1: 503 error, Attempt 2: Success
@@ -41,7 +47,7 @@ def test_primary_model_retry_success(mock_sleep):
 
 @patch("time.sleep", return_value=None)
 def test_fallback_model_success(mock_sleep):
-    provider = LLMProvider(api_key="test_key", model="gemini-2.5-flash", fallback_model="gemini-2.0-flash")
+    provider = LLMProvider(api_key="test_key", model="gemini-3.8-flash", fallback_model="gemini-flash-latest")
     
     mock_client = MagicMock()
     # Primary model fails 3 times with 503, Fallback model succeeds on 1st try
@@ -63,7 +69,7 @@ def test_fallback_model_success(mock_sleep):
 
 @patch("time.sleep", return_value=None)
 def test_non_retryable_error_fails_immediately(mock_sleep):
-    provider = LLMProvider(api_key="test_key", model="gemini-2.5-flash", fallback_model="gemini-2.0-flash")
+    provider = LLMProvider(api_key="test_key", model="gemini-3.8-flash", fallback_model="gemini-flash-latest")
     
     mock_client = MagicMock()
     # 404 Not Found error
@@ -82,7 +88,7 @@ def test_non_retryable_error_fails_immediately(mock_sleep):
 
 @patch("time.sleep", return_value=None)
 def test_all_models_transient_exhaustion(mock_sleep):
-    provider = LLMProvider(api_key="test_key", model="gemini-2.5-flash", fallback_model="gemini-2.0-flash")
+    provider = LLMProvider(api_key="test_key", model="gemini-3.8-flash", fallback_model="gemini-flash-latest")
     
     mock_client = MagicMock()
     mock_client.models.generate_content.side_effect = Exception("503 Service Unavailable")

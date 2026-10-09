@@ -35,6 +35,7 @@ def test_health_endpoint():
     data = response.json()
     assert data["status"] == "ok"
     assert data["orders_loaded"] == 60
+    assert "llm_ready" in data
 
 def test_api_validation_errors():
     # Empty message

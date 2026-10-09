@@ -22,6 +22,7 @@ class ChatResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str = "ok"
     orders_loaded: int
+    llm_ready: bool
 
 class ErrorResponse(BaseModel):
     error: str

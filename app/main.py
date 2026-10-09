@@ -71,7 +71,11 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/api/health", response_model=HealthResponse)
 async def health_check():
-    return HealthResponse(status="ok", orders_loaded=len(dataset.orders))
+    return HealthResponse(
+        status="ok",
+        orders_loaded=len(dataset.orders),
+        llm_ready=agent.llm.is_configured()
+    )
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: Request, body: ChatRequest):

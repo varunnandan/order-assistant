@@ -9,8 +9,8 @@ load_dotenv()
 
 logger = logging.getLogger("order_assistant.llm")
 
-# Request timeout in seconds for every LLM call
-LLM_REQUEST_TIMEOUT_SECONDS = 30
+# Request timeout in milliseconds for every LLM call
+LLM_REQUEST_TIMEOUT_MS = 30000
 
 class LLMServiceUnavailableError(RuntimeError):
     """Raised when LLM service is busy or unavailable after retries and fallback."""
@@ -100,24 +100,19 @@ class LLMProvider:
 
     def _init_client(self):
         try:
-            import httpx
             from google import genai
+            from google.genai import types
 
-            # Pass an httpx client with explicit connect + read timeout
-            http_client = httpx.Client(
-                timeout=httpx.Timeout(
-                    connect=10.0,
-                    read=LLM_REQUEST_TIMEOUT_SECONDS,
-                    write=10.0,
-                    pool=5.0,
-                )
-            )
-            self.client = genai.Client(api_key=self.api_key, http_client=http_client)
+            # Set 30s timeout via supported SDK http_options
+            http_opts = types.HttpOptions(timeout=LLM_REQUEST_TIMEOUT_MS)
+            self.client = genai.Client(api_key=self.api_key, http_options=http_opts)
+            logger.info("Successfully initialized google-genai client with 30s timeout.")
         except Exception as e:
             logger.error(f"Failed to initialize google-genai client: {e}")
+            self.client = None
 
     def is_configured(self) -> bool:
-        return self.client is not None or bool(self.api_key)
+        return self.client is not None
 
     def _call_model_with_retries(
         self,

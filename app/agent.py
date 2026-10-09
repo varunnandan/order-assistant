@@ -109,11 +109,14 @@ class OrderAgent:
                 })
 
             # Append assistant turn and tool results turn to contents
-            # Format compatible with Gemini API tool execution turn
-            contents.append({
-                "role": "model",
-                "parts": [{"function_call": {"name": name, "args": args}} for name, args in function_calls]
-            })
+            if hasattr(response, "candidates") and response.candidates and getattr(response.candidates[0], "content", None):
+                contents.append(response.candidates[0].content)
+            else:
+                contents.append({
+                    "role": "model",
+                    "parts": [{"function_call": {"name": name, "args": args}} for name, args in function_calls]
+                })
+
             contents.append({
                 "role": "user",
                 "parts": tool_response_parts
