@@ -2,10 +2,79 @@ import pytest
 from unittest.mock import MagicMock, patch
 from app.llm import LLMProvider, LLMNonRetryableError, LLMServiceUnavailableError, is_transient_error
 
-class MockGeminiResponse:
-    def __init__(self, text="Response OK"):
+from app.agent import OrderAgent
+
+class MockPart:
+    def __init__(self, text=None, function_call=None):
         self.text = text
-        self.function_calls = []
+        self.function_call = function_call
+
+class MockContent:
+    def __init__(self, parts=None):
+        self.parts = parts or []
+
+class MockCandidate:
+    def __init__(self, content=None):
+        self.content = content
+
+class MockGeminiResponse:
+    def __init__(self, text=None, function_calls=None, candidates=None):
+        if candidates is not None:
+            self.candidates = candidates
+        else:
+            parts = []
+            if text:
+                parts.append(MockPart(text=text))
+            if function_calls:
+                for fc in function_calls:
+                    parts.append(MockPart(function_call=fc))
+            self.candidates = [MockCandidate(MockContent(parts))] if parts else []
+
+    @property
+    def text(self):
+        if self.candidates and getattr(self.candidates[0], "content", None):
+            parts = getattr(self.candidates[0].content, "parts", [])
+            texts = [getattr(p, "text", "") for p in parts if getattr(p, "text", None)]
+            return "\n".join(texts)
+        return ""
+
+class MockFnCall:
+    def __init__(self, name, args):
+        self.name = name
+        self.args = args
+
+def test_extract_response_parts_edge_cases():
+    agent = OrderAgent(llm_provider=MagicMock())
+
+    # Case 1: function_call part and no text
+    fc_part = MockPart(function_call=MockFnCall("get_order", {"order_id": "ORD-1025"}))
+    resp_fc_only = MockGeminiResponse(candidates=[MockCandidate(MockContent([fc_part]))])
+    calls, text = agent._extract_response_parts(resp_fc_only)
+    assert len(calls) == 1
+    assert calls[0] == ("get_order", {"order_id": "ORD-1025"})
+    assert text == ""
+
+    # Case 2: text only
+    text_part = MockPart(text="Order ORD-1025 is delivered.")
+    resp_text_only = MockGeminiResponse(candidates=[MockCandidate(MockContent([text_part]))])
+    calls, text = agent._extract_response_parts(resp_text_only)
+    assert len(calls) == 0
+    assert text == "Order ORD-1025 is delivered."
+
+    # Case 3: no candidates (empty response / safety block)
+    resp_empty = MockGeminiResponse(candidates=[])
+    calls, text = agent._extract_response_parts(resp_empty)
+    assert len(calls) == 0
+    assert text == ""
+
+    # Case 4: multiple function calls
+    fc1 = MockPart(function_call=MockFnCall("get_order", {"order_id": "ORD-1001"}))
+    fc2 = MockPart(function_call=MockFnCall("search_orders", {"status": "cancelled"}))
+    resp_multi_fc = MockGeminiResponse(candidates=[MockCandidate(MockContent([fc1, fc2]))])
+    calls, text = agent._extract_response_parts(resp_multi_fc)
+    assert len(calls) == 2
+    assert calls[0][0] == "get_order"
+    assert calls[1][0] == "search_orders"
 
 def test_real_genai_client_constructor_signature():
     """Construct real LLMProvider with dummy key to verify SDK Client signature options."""

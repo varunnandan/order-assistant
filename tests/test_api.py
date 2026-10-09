@@ -7,10 +7,31 @@ from app.guardrails import rate_limiter
 
 client = TestClient(app)
 
-class MockLLMResponse:
-    def __init__(self, text=None, function_calls=None):
+class MockPart:
+    def __init__(self, text=None, function_call=None):
         self.text = text
-        self.function_calls = function_calls or []
+        self.function_call = function_call
+
+class MockContent:
+    def __init__(self, parts=None):
+        self.parts = parts or []
+
+class MockCandidate:
+    def __init__(self, content=None):
+        self.content = content
+
+class MockLLMResponse:
+    def __init__(self, text=None, function_calls=None, candidates=None):
+        if candidates is not None:
+            self.candidates = candidates
+        else:
+            parts = []
+            if text:
+                parts.append(MockPart(text=text))
+            if function_calls:
+                for fc in function_calls:
+                    parts.append(MockPart(function_call=fc))
+            self.candidates = [MockCandidate(MockContent(parts))] if parts else []
 
 class MockFunctionCall:
     def __init__(self, name, args):

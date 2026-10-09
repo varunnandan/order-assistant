@@ -124,33 +124,46 @@ class OrderAgent:
 
         return "I apologize, but I was unable to complete the request within the maximum allowed steps.", recorded_tool_calls
 
-    def _extract_function_calls(self, response: Any) -> List[Tuple[str, Dict[str, Any]]]:
-        calls = []
-        if hasattr(response, "function_calls") and response.function_calls:
-            for call in response.function_calls:
-                calls.append((call.name, dict(call.args or {})))
-            return calls
+    def _extract_response_parts(self, response: Any) -> Tuple[List[Tuple[str, Dict[str, Any]]], str]:
+        """Safely extract function_call objects and text strings from response.candidates[0].content.parts.
+        Does NOT access response.text or response.function_calls properties to prevent SDK warnings.
+        Handles edge cases: no candidates (safety blocks / empty), text + tool calls, and multiple tool calls.
+        """
+        calls: List[Tuple[str, Dict[str, Any]]] = []
+        text_list: List[str] = []
 
-        if hasattr(response, "candidates") and response.candidates:
-            for cand in response.candidates:
-                if hasattr(cand, "content") and cand.content and hasattr(cand.content, "parts"):
-                    for part in cand.content.parts:
-                        if hasattr(part, "function_call") and part.function_call:
-                            fn = part.function_call
-                            args = dict(fn.args) if hasattr(fn, "args") and fn.args else {}
-                            calls.append((fn.name, args))
+        candidates = getattr(response, "candidates", None)
+        if not candidates:
+            return calls, ""
+
+        for candidate in candidates:
+            content = getattr(candidate, "content", None)
+            if not content:
+                continue
+            parts = getattr(content, "parts", None)
+            if not parts:
+                continue
+            for part in parts:
+                # Extract function_call part
+                fn_call = getattr(part, "function_call", None)
+                if fn_call:
+                    name = getattr(fn_call, "name", None)
+                    raw_args = getattr(fn_call, "args", None)
+                    if name:
+                        args = dict(raw_args) if raw_args is not None else {}
+                        calls.append((name, args))
+
+                # Extract text part
+                text = getattr(part, "text", None)
+                if text:
+                    text_list.append(text)
+
+        return calls, "\n".join(text_list).strip()
+
+    def _extract_function_calls(self, response: Any) -> List[Tuple[str, Dict[str, Any]]]:
+        calls, _ = self._extract_response_parts(response)
         return calls
 
     def _extract_text(self, response: Any) -> str:
-        if hasattr(response, "text") and response.text:
-            return response.text
-        if hasattr(response, "candidates") and response.candidates:
-            texts = []
-            for cand in response.candidates:
-                if hasattr(cand, "content") and cand.content and hasattr(cand.content, "parts"):
-                    for part in cand.content.parts:
-                        if hasattr(part, "text") and part.text:
-                            texts.append(part.text)
-            if texts:
-                return "\n".join(texts)
-        return ""
+        _, text = self._extract_response_parts(response)
+        return text
