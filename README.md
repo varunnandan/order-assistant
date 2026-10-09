@@ -30,6 +30,7 @@ Add your free Google Gemini API key to `.env` (Get a free key from [Google AI St
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-2.5-flash
+GEMINI_FALLBACK_MODEL=gemini-2.0-flash
 ```
 
 Then start the server:

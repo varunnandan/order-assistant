@@ -99,30 +99,24 @@ async def chat_endpoint(request: Request, body: ChatRequest):
             for tc in tool_calls_raw
         ]
         return ChatResponse(reply=reply_text, tool_calls=tool_calls)
-    except RuntimeError as rerr:
-        logger.error(f"LLM Runtime error: {rerr}")
-        err_str = str(rerr)
-        if "quota" in err_str.lower() or "429" in err_str:
+    except Exception as exc:
+        err_str = str(exc).lower()
+        logger.error(f"Chat processing failure: {exc}")
+        if "busy" in err_str or "unavailable" in err_str or "503" in err_str or "high demand" in err_str or "rate limit" in err_str or "quota" in err_str:
             raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="The AI service rate limit or quota has been reached. Please wait a moment and try again."
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="The AI service is busy right now. Please try again in a few seconds."
             )
-        elif "api_key" in err_str.lower() or "not set" in err_str.lower():
+        elif "missing" in err_str or "not set" in err_str:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="AI service is not configured properly (missing API key). Please configure GEMINI_API_KEY."
             )
         else:
             raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Failed to communicate with AI model service. Please try again."
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="The AI service is busy right now. Please try again in a few seconds."
             )
-    except Exception as exc:
-        logger.error(f"Chat processing failure: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while processing your question."
-        )
 
 # Mount static files and fallback index page
 static_dir = os.path.join(os.path.dirname(__file__), "..", "static")

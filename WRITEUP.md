@@ -20,8 +20,13 @@ The application follows a clean, decoupled **Single-Service Monolith** architect
 
 ---
 
-## Guardrails
+## Guardrails & Reliability
 
+- **LLM Resilience & Transient Fault Handling**:
+  - **Exponential Backoff Retries**: Transient API errors (e.g., 503 UNAVAILABLE, 429 Rate Limit, 500, timeouts) are automatically retried up to 3 times with exponential backoff and randomized jitter (1s, 2s, 4s). Non-retryable client errors (400, 401, 403, 404) fail immediately without retrying.
+  - **Secondary Model Fallback**: If the primary model (`gemini-2.5-flash`) exhausts retries due to persistent high demand, the system automatically falls back to a secondary model (`GEMINI_FALLBACK_MODEL`, default `gemini-2.0-flash`).
+  - **Disabled SDK Auto-Calling**: SDK automatic function calling (`automatic_function_calling=AutomaticFunctionCallingConfig(disable=True)`) is explicitly disabled so only our controlled agent loop executes tools and traces steps accurately.
+  - **Graceful HTTP 503 Surface**: If all retries and fallback models fail, the server returns a clean HTTP 503 with `"The AI service is busy right now. Please try again in a few seconds."`, enabling the UI Retry button.
 - **Scope & Prompt Injection Guard**: Pre-scans incoming user messages for prompt-injection keywords (`ignore previous instructions`, `system prompt`, `api key`) or off-topic prompts (general knowledge, coding, recipes) and returns an instant polite refusal.
 - **Tool-Argument Validation**: All tool parameters are typed and validated. Unsupported fields or invalid metrics are rejected with structured error messages.
 - **Strict Read-Only Access**: Data mutate operations are omitted entirely. The loaded dataset is immutable.
