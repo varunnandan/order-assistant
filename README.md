@@ -3,7 +3,7 @@
 An end-to-end, production-grade AI-powered **Order Assistant** chat web application built for an e-commerce platform screening task. Users ask natural-language questions about customer orders, sales metrics, and inventory, and the AI agent retrieves facts by calling structured python tools over `orders.csv`.
 
 **GitHub Repository**: [https://github.com/varunnandan/order-assistant](https://github.com/varunnandan/order-assistant)
-**Live Demo**: `<PASTE_RENDER_LIVE_URL>` *(Note: Render free tier services may experience a ~30–60 second cold start on the initial request)*.
+**Live Demo**: [https://order-assistant-0gww.onrender.com/](https://order-assistant-0gww.onrender.com/) *(Note: Render free tier services may experience a ~30–60 second cold start on the initial request)*.
 
 ---
 
